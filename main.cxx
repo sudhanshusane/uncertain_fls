@@ -119,7 +119,12 @@ int main(int argc, char* argv[])
 	float *zc = (float*) mesh->GetZCoordinates()->GetVoidPointer(0);
 
 	int *binary_image = (int*)malloc(sizeof(float)*num_pts);
-	float* stddev = (float*)malloc(sizeof(float)*num_pts);
+	float* stddev1 = (float*)malloc(sizeof(float)*num_pts);
+	float* stddev2 = (float*)malloc(sizeof(float)*num_pts);
+	float* minvals1 = (float*)malloc(sizeof(float)*num_pts);
+	float* maxvals1 = (float*)malloc(sizeof(float)*num_pts);
+	float* minvals2 = (float*)malloc(sizeof(float)*num_pts);
+	float* maxvals2 = (float*)malloc(sizeof(float)*num_pts);
 
 	vtkSmartPointer<vtkFloatArray> binaryArray = vtkSmartPointer<vtkFloatArray>::New();
 	binaryArray->SetName("binary");
@@ -130,20 +135,24 @@ int main(int argc, char* argv[])
 	distArray->SetNumberOfComponents(1); 
 	
 	vtkSmartPointer<vtkFloatArray> distArray_99 = vtkSmartPointer<vtkFloatArray>::New();
-	distArray->SetName("distance99");
-	distArray->SetNumberOfComponents(1); 
+	distArray_99->SetName("distance99");
+	distArray_99->SetNumberOfComponents(1); 
+	
 	vtkSmartPointer<vtkFloatArray> distArray_95 = vtkSmartPointer<vtkFloatArray>::New();
-	distArray->SetName("distance95");
-	distArray->SetNumberOfComponents(1); 
+	distArray_95->SetName("distance95");
+	distArray_95->SetNumberOfComponents(1); 
+	
 	vtkSmartPointer<vtkFloatArray> distArray_68 = vtkSmartPointer<vtkFloatArray>::New();
-	distArray->SetName("distance68");
-	distArray->SetNumberOfComponents(1); 
+	distArray_68->SetName("distance68");
+	distArray_68->SetNumberOfComponents(1); 
 
 	for(int n = 0; n < num_pts; n++)
 	{
-		stddev[n] = 1.0;
+		stddev1[n] = atof(argv[9]);
+		stddev2[n] = atof(argv[10]);
 	}
 
+	cout << "standard deviation vals: " << atof(argv[9]) << " and " << atof(argv[10]) << endl;
 	int cells = 0;
 	int cells_99 = 0;
 	int cells_95 = 0;
@@ -275,6 +284,406 @@ int main(int argc, char* argv[])
 		distArray->InsertNextTuple1(sqrt(s[n]));
 	}
 
+// Computing the confidence interval isosurfaces // 
+
+// Confidence interval = 99. Z = 2.57583
+  double Z = 2.57583;
+	for(int n = 0; n < num_pts; n++)
+  {
+    double c1 = att1->GetTuple1(n);
+    double c2 = att2->GetTuple1(n);
+
+		minvals1[n] = c1 - (Z*stddev1[n]);
+		maxvals1[n] = c1 + (Z*stddev1[n]);
+		
+		minvals2[n] = c2 - (Z*stddev2[n]);
+		maxvals2[n] = c2 + (Z*stddev2[n]);
+	}
+		
+	
+	for(int n = 0; n < num_pts; n++)
+  {
+		if((minvals1[n] <= att1_max && maxvals1[n] >= att1_min) && (minvals2[n] <= att2_max && maxvals2[n] >= att2_min)) 
+    {
+      binary_image[n] = 0;
+      cells_99++;
+    }
+    else
+    {
+      binary_image[n] = 1;
+    }
+  }
+
+	#pragma omp parallel for
+	for(int n = 0; n < num_pts; n++)
+	{
+		// For each point. Scan the x-axis. 		
+		int idx[3];
+		GetLogicalPointIndex(idx, n, dims);	
+		// we are going to scan x-axis for fixed values of idx[1], idx[2]	
+		float pos1;
+		pos1 = xc[idx[0]];	
+
+
+		float min_dist = pow((xc[dims[0]-1] - xc[0]), 2.0);		
+
+		for(int i = 0; i < dims[0]; i++)
+		{
+			int index = idx[2]*dims[0]*dims[1]+idx[1]*dims[0]+i;
+			if(binary_image[index] == 0)
+			{
+				float pos2;
+				pos2 = xc[i];
+
+				float dist = pow((pos2 - pos1), 2.0);
+				if(dist < min_dist)
+				{
+					min_dist = dist;
+				}
+			}
+		}
+		
+		g[n] = min_dist;
+	}
+		
+	#pragma omp parallel for
+	for(int n = 0; n < num_pts; n++)
+	{
+		// For each point. Scan the x-axis. 		
+		int idx[3];
+		GetLogicalPointIndex(idx, n, dims);	
+		// we are going to scan x-axis for fixed values of idx[1], idx[2]	
+		float pos1;
+		pos1 = yc[idx[1]];	
+
+		float min_dist; // = pow((yc[dims[1]-1] - yc[0]), 2.0) + pow((xc[dims[0]-1] - xc[0]), 2.0);		
+
+		for(int i = 0; i < dims[1]; i++)
+		{
+			int index = idx[2]*dims[0]*dims[1]+i*dims[0]+idx[0];
+			float pos2;
+			pos2 = yc[i];
+
+			float dist = pow((pos2 - pos1), 2.0) + g[index];
+			if(i == 0)
+			{
+				min_dist = dist;
+			}
+			if(dist < min_dist)
+			{
+				min_dist = dist;
+			}
+		}
+		
+		h[n] = min_dist;
+	}
+		
+	#pragma omp parallel for
+	for(int n = 0; n < num_pts; n++)
+	{
+		// For each point. Scan the x-axis. 		
+		int idx[3];
+		GetLogicalPointIndex(idx, n, dims);	
+		// we are going to scan x-axis for fixed values of idx[1], idx[2]	
+		float pos1;
+		pos1 = zc[idx[2]];	
+
+		float min_dist; // = pow((yc[dims[1]-1] - yc[0]), 2.0) + pow((yc[dims[1]-1] - yc[0]), 2.0) + pow((xc[dims[0]-1] - xc[0]), 2.0);		
+
+		for(int i = 0; i < dims[2]; i++)
+		{
+			int index = i*dims[0]*dims[1]+idx[1]*dims[0]+idx[0];
+			float pos2;
+			pos2 = zc[i];
+
+			float dist = pow((pos2 - pos1), 2.0) + h[index];
+//			float dist = compute_distance(pos1, pos2);
+      if(i == 0)
+      {
+        min_dist = dist;
+      }
+			if(dist < min_dist)
+			{
+				min_dist = dist;
+			}
+		}
+		
+		s[n] = min_dist;
+	}
+
+
+	for(int n = 0; n < num_pts; n++)
+	{
+		distArray_99->InsertNextTuple1(sqrt(s[n]));
+	}
+
+// Confidence interval = 95. Z = 1.95996
+  Z = 1.95996;
+	for(int n = 0; n < num_pts; n++)
+  {
+    double c1 = att1->GetTuple1(n);
+    double c2 = att2->GetTuple1(n);
+
+		minvals1[n] = c1 - Z*stddev1[n];
+		maxvals1[n] = c1 + Z*stddev1[n];
+		
+		minvals2[n] = c2 - Z*stddev2[n];
+		maxvals2[n] = c2 + Z*stddev2[n];
+	}
+		
+	
+	for(int n = 0; n < num_pts; n++)
+  {
+		if((minvals1[n] <= att1_max && maxvals1[n] >= att1_min) && (minvals2[n] <= att2_max && maxvals2[n] >= att2_min)) 
+    {
+      binary_image[n] = 0;
+      cells_95++;
+    }
+    else
+    {
+      binary_image[n] = 1;
+    }
+  }
+
+	#pragma omp parallel for
+	for(int n = 0; n < num_pts; n++)
+	{
+		// For each point. Scan the x-axis. 		
+		int idx[3];
+		GetLogicalPointIndex(idx, n, dims);	
+		// we are going to scan x-axis for fixed values of idx[1], idx[2]	
+		float pos1;
+		pos1 = xc[idx[0]];	
+
+
+		float min_dist = pow((xc[dims[0]-1] - xc[0]), 2.0);		
+
+		for(int i = 0; i < dims[0]; i++)
+		{
+			int index = idx[2]*dims[0]*dims[1]+idx[1]*dims[0]+i;
+			if(binary_image[index] == 0)
+			{
+				float pos2;
+				pos2 = xc[i];
+
+				float dist = pow((pos2 - pos1), 2.0);
+//				float dist = compute_distance(pos1, pos2);
+				if(dist < min_dist)
+				{
+					min_dist = dist;
+				}
+			}
+		}
+		
+		g[n] = min_dist;
+	}
+		
+	#pragma omp parallel for
+	for(int n = 0; n < num_pts; n++)
+	{
+		// For each point. Scan the x-axis. 		
+		int idx[3];
+		GetLogicalPointIndex(idx, n, dims);	
+		// we are going to scan x-axis for fixed values of idx[1], idx[2]	
+		float pos1;
+		pos1 = yc[idx[1]];	
+
+		float min_dist; // = pow((yc[dims[1]-1] - yc[0]), 2.0) + pow((xc[dims[0]-1] - xc[0]), 2.0);		
+
+		for(int i = 0; i < dims[1]; i++)
+		{
+			int index = idx[2]*dims[0]*dims[1]+i*dims[0]+idx[0];
+			float pos2;
+			pos2 = yc[i];
+
+			float dist = pow((pos2 - pos1), 2.0) + g[index];
+			if(i == 0)
+			{
+				min_dist = dist;
+			}
+//				float dist = compute_distance(pos1, pos2);
+			if(dist < min_dist)
+			{
+				min_dist = dist;
+			}
+		}
+		
+		h[n] = min_dist;
+	}
+		
+	#pragma omp parallel for
+	for(int n = 0; n < num_pts; n++)
+	{
+		// For each point. Scan the x-axis. 		
+		int idx[3];
+		GetLogicalPointIndex(idx, n, dims);	
+		// we are going to scan x-axis for fixed values of idx[1], idx[2]	
+		float pos1;
+		pos1 = zc[idx[2]];	
+
+		float min_dist; // = pow((yc[dims[1]-1] - yc[0]), 2.0) + pow((yc[dims[1]-1] - yc[0]), 2.0) + pow((xc[dims[0]-1] - xc[0]), 2.0);		
+
+		for(int i = 0; i < dims[2]; i++)
+		{
+			int index = i*dims[0]*dims[1]+idx[1]*dims[0]+idx[0];
+			float pos2;
+			pos2 = zc[i];
+
+			float dist = pow((pos2 - pos1), 2.0) + h[index];
+//			float dist = compute_distance(pos1, pos2);
+      if(i == 0)
+      {
+        min_dist = dist;
+      }
+			if(dist < min_dist)
+			{
+				min_dist = dist;
+			}
+		}
+		
+		s[n] = min_dist;
+	}
+
+
+	for(int n = 0; n < num_pts; n++)
+	{
+		distArray_95->InsertNextTuple1(sqrt(s[n]));
+	}
+
+// Confidence interval = 68. Z = 1.0
+  Z = 1.0;
+	for(int n = 0; n < num_pts; n++)
+  {
+    double c1 = att1->GetTuple1(n);
+    double c2 = att2->GetTuple1(n);
+
+		minvals1[n] = c1 - Z*stddev1[n];
+		maxvals1[n] = c1 + Z*stddev1[n];
+		
+		minvals2[n] = c2 - Z*stddev2[n];
+		maxvals2[n] = c2 + Z*stddev2[n];
+	}
+		
+	
+	for(int n = 0; n < num_pts; n++)
+  {
+		if((minvals1[n] <= att1_max && maxvals1[n] >= att1_min) && (minvals2[n] <= att2_max && maxvals2[n] >= att2_min)) 
+    {
+      binary_image[n] = 0;
+      cells_68++;
+    }
+    else
+    {
+      binary_image[n] = 1;
+    }
+  }
+
+	#pragma omp parallel for
+	for(int n = 0; n < num_pts; n++)
+	{
+		// For each point. Scan the x-axis. 		
+		int idx[3];
+		GetLogicalPointIndex(idx, n, dims);	
+		// we are going to scan x-axis for fixed values of idx[1], idx[2]	
+		float pos1;
+		pos1 = xc[idx[0]];	
+
+
+		float min_dist = pow((xc[dims[0]-1] - xc[0]), 2.0);		
+
+		for(int i = 0; i < dims[0]; i++)
+		{
+			int index = idx[2]*dims[0]*dims[1]+idx[1]*dims[0]+i;
+			if(binary_image[index] == 0)
+			{
+				float pos2;
+				pos2 = xc[i];
+
+				float dist = pow((pos2 - pos1), 2.0);
+//				float dist = compute_distance(pos1, pos2);
+				if(dist < min_dist)
+				{
+					min_dist = dist;
+				}
+			}
+		}
+		
+		g[n] = min_dist;
+	}
+		
+	#pragma omp parallel for
+	for(int n = 0; n < num_pts; n++)
+	{
+		// For each point. Scan the x-axis. 		
+		int idx[3];
+		GetLogicalPointIndex(idx, n, dims);	
+		// we are going to scan x-axis for fixed values of idx[1], idx[2]	
+		float pos1;
+		pos1 = yc[idx[1]];	
+
+		float min_dist; // = pow((yc[dims[1]-1] - yc[0]), 2.0) + pow((xc[dims[0]-1] - xc[0]), 2.0);		
+
+		for(int i = 0; i < dims[1]; i++)
+		{
+			int index = idx[2]*dims[0]*dims[1]+i*dims[0]+idx[0];
+			float pos2;
+			pos2 = yc[i];
+
+			float dist = pow((pos2 - pos1), 2.0) + g[index];
+			if(i == 0)
+			{
+				min_dist = dist;
+			}
+//				float dist = compute_distance(pos1, pos2);
+			if(dist < min_dist)
+			{
+				min_dist = dist;
+			}
+		}
+		
+		h[n] = min_dist;
+	}
+		
+	#pragma omp parallel for
+	for(int n = 0; n < num_pts; n++)
+	{
+		// For each point. Scan the x-axis. 		
+		int idx[3];
+		GetLogicalPointIndex(idx, n, dims);	
+		// we are going to scan x-axis for fixed values of idx[1], idx[2]	
+		float pos1;
+		pos1 = zc[idx[2]];	
+
+		float min_dist; // = pow((yc[dims[1]-1] - yc[0]), 2.0) + pow((yc[dims[1]-1] - yc[0]), 2.0) + pow((xc[dims[0]-1] - xc[0]), 2.0);		
+
+		for(int i = 0; i < dims[2]; i++)
+		{
+			int index = i*dims[0]*dims[1]+idx[1]*dims[0]+idx[0];
+			float pos2;
+			pos2 = zc[i];
+
+			float dist = pow((pos2 - pos1), 2.0) + h[index];
+//			float dist = compute_distance(pos1, pos2);
+      if(i == 0)
+      {
+        min_dist = dist;
+      }
+			if(dist < min_dist)
+			{
+				min_dist = dist;
+			}
+		}
+		
+		s[n] = min_dist;
+	}
+
+
+	for(int n = 0; n < num_pts; n++)
+	{
+		distArray_68->InsertNextTuple1(sqrt(s[n]));
+	}
+
+
 	cout << "Number of points within interval: " << cells << endl;
 	cout << "Number of points within 99% confidence interval: " << cells_99 << endl;
 	cout << "Number of points within 95% confidence interval: " << cells_95 << endl;
@@ -315,7 +724,7 @@ int main(int argc, char* argv[])
 
   writer->SetFileName(argv[2]);
   writer->SetInputData(outputGrid);
-  writer->SetFileTypeToASCII();
+  writer->SetFileTypeToBinary();
   writer->Write();
 
 }
