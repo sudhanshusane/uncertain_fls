@@ -71,8 +71,8 @@ int main(int argc, char* argv[])
 //	vtkAbstractArray* a3 = mesh->GetPointData()->GetArray("streamvort");
 //	vtkAbstractArray* a4 = mesh->GetPointData()->GetArray("vortmag");
 
-	vtkFloatArray* att1 = vtkFloatArray::SafeDownCast(a1);
-	vtkFloatArray* att2 = vtkFloatArray::SafeDownCast(a2);
+	vtkDoubleArray* att1 = vtkDoubleArray::SafeDownCast(a1);
+	vtkDoubleArray* att2 = vtkDoubleArray::SafeDownCast(a2);
 //	vtkFloatArray* att3 = vtkFloatArray::SafeDownCast(a3);
 //	vtkFloatArray* att4 = vtkFloatArray::SafeDownCast(a4);
 
