@@ -65,6 +65,8 @@ int main(int argc, char* argv[])
     vtkSmartPointer<vtkRectilinearGrid>::New();
 	mesh = reader->GetOutput();
 	int num_pts = mesh->GetNumberOfPoints();
+	int dims[3];
+  mesh->GetDimensions(dims);
 
 	int num_fields = atoi(argv[2]);
 	int neighborhood_size = atoi(argv[3]);
@@ -72,26 +74,40 @@ int main(int argc, char* argv[])
 	// Compute a standard deviation field for each input scalar.
 	for(int n = 0; n < num_fields; n++)
 	{
-		
+		vtkAbstractArray* a1 = mesh->GetPointData()->GetArray(n);
+		vtkDoubleArray* att1 = vtkDoubleArray::SafeDownCast(a1);
+		std::cout << att1->GetTuple1(0) << std::endl;
+		double* stddev1 = (double*)malloc(sizeof(double)*num_pts);
+	
+		for(int p = 0; p < num_pts; p++)
+		{
+			double mean = att1->GetTuple1(p);
+			double sum = 0;
+			int count = 0;	
+			int idx[3];
+			GetLogicalPointIndex(idx, p, dims);	
+			for(int i = idx[0]-neighborhood_size; i <= idx[0]+neighborhood_size; i++)
+			{
+				for(int j = idx[1]-neighborhood_size; j <= idx[1]+neighborhood_size; j++)
+				{
+					for(int k = idx[2]-neighborhood_size; k <= idx[2]+neighborhood_size; k++)
+					{
+						int p_idx[3];
+						p_idx[0] = i;
+						p_idx[1] = j;
+						p_idx[2] = k;
+						int index = GetPointIndex(p_idx, dims);
+						if(index >= 0 && index < num_pts)
+						{
+							sum += pow((mean - att1->GetTuple1(index)), 2.0);
+							count += 1;
+						}
+					}
+				}
+			}
+			stddev1[p] = sqrt(sum/count);	
+		}
 	}
-
-
-
-	vtkAbstractArray* a1 = mesh->GetPointData()->GetArray(argv[2]);
-//	vtkAbstractArray* a3 = mesh->GetPointData()->GetArray("streamvort");
-//	vtkAbstractArray* a4 = mesh->GetPointData()->GetArray("vortmag");
-
-	vtkFloatArray* att1 = vtkFloatArray::SafeDownCast(a1);
-	vtkFloatArray* att2 = vtkFloatArray::SafeDownCast(a2);
-//	vtkFloatArray* att3 = vtkFloatArray::SafeDownCast(a3);
-//	vtkFloatArray* att4 = vtkFloatArray::SafeDownCast(a4);
-
-	int dims[3];
-
-  mesh->GetDimensions(dims);
-
-	cout << num_pts << endl;
-
 
 	/*
  	* For each grid point. 
