@@ -71,8 +71,8 @@ int main(int argc, char* argv[])
 //	vtkAbstractArray* a3 = mesh->GetPointData()->GetArray("streamvort");
 //	vtkAbstractArray* a4 = mesh->GetPointData()->GetArray("vortmag");
 
-	vtkDoubleArray* att1 = vtkDoubleArray::SafeDownCast(a1);
-	vtkDoubleArray* att2 = vtkDoubleArray::SafeDownCast(a2);
+	vtkFloatArray* att1 = vtkFloatArray::SafeDownCast(a1);
+	vtkFloatArray* att2 = vtkFloatArray::SafeDownCast(a2);
 //	vtkFloatArray* att3 = vtkFloatArray::SafeDownCast(a3);
 //	vtkFloatArray* att4 = vtkFloatArray::SafeDownCast(a4);
 
@@ -689,12 +689,12 @@ int main(int argc, char* argv[])
 	cout << "Number of points within 95% confidence interval: " << cells_95 << endl;
 	cout << "Number of points within 68% confidence interval: " << cells_68 << endl;
 	/* Write binary_image data as a scalar field to a vtk data set and output it. */
-  vtkSmartPointer<vtkDoubleArray> xCoords =
-    vtkSmartPointer<vtkDoubleArray>::New();
-  vtkSmartPointer<vtkDoubleArray> yCoords =
-    vtkSmartPointer<vtkDoubleArray>::New();
-  vtkSmartPointer<vtkDoubleArray> zCoords =
-    vtkSmartPointer<vtkDoubleArray>::New();
+  vtkSmartPointer<vtkFloatArray> xCoords =
+    vtkSmartPointer<vtkFloatArray>::New();
+  vtkSmartPointer<vtkFloatArray> yCoords =
+    vtkSmartPointer<vtkFloatArray>::New();
+  vtkSmartPointer<vtkFloatArray> zCoords =
+    vtkSmartPointer<vtkFloatArray>::New();
 
   for(int i = 0; i < dims[0]; i++)
   xCoords->InsertNextValue(xc[i]);

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-INPUT="Tornado_07100.vtk"
+INPUT="/home/sci/ssane/data/Tornado/Tornado_07100.vtk"
 OUTPUT="OutputTornado_CI.vtk"
 #ATT2_MIN="-20.0"
 #ATT2_MAX="-19.0"

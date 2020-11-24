@@ -1,6 +1,6 @@
 #!/bin/bash
 
-INPUT="ethane_diol.vtk"
+INPUT="/home/sci/ssane/data/EthaneDiol/ethane_diol.vtk"
 FIELD=4
 OUTPUT="OutputEthane_CI_FLS"$FIELD".vtk"
 ATT1_MIN="2"
