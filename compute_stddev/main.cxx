@@ -8,7 +8,6 @@
 #include <vtkFieldData.h>
 #include <vtkAbstractArray.h>
 #include <vtkFloatArray.h>
-#include <vtkDoubleArray.h>
 #include <vtkDataSetWriter.h>
 
 
@@ -69,6 +68,10 @@ int main(int argc, char* argv[])
 	int dims[3];
   mesh->GetDimensions(dims);
 
+	std::cout << "Dimensions: " << dims[0] << " " << dims[1] << " " << dims[2] << std::endl;
+
+	std::cout << "Number of fields: " << mesh->GetPointData()->GetNumberOfArrays() << std::endl;
+
 	int num_fields = atoi(argv[2]);
 	int neighborhood_size = atoi(argv[3]);
 
@@ -76,13 +79,13 @@ int main(int argc, char* argv[])
 	for(int n = 0; n < num_fields; n++)
 	{
 		vtkAbstractArray* a1 = mesh->GetPointData()->GetArray(n);
-		vtkDoubleArray* att1 = vtkDoubleArray::SafeDownCast(a1);
+		vtkFloatArray* att1 = vtkFloatArray::SafeDownCast(a1);
 		std::cout << att1->GetTuple1(0) << std::endl;
 		std::string att1_name(mesh->GetPointData()->GetArrayName(n));
 		std::stringstream s;
 		s << "stddev_" << att1_name;	
 	
-		vtkSmartPointer<vtkDoubleArray> stddevArray = vtkSmartPointer<vtkDoubleArray>::New();
+		vtkSmartPointer<vtkFloatArray> stddevArray = vtkSmartPointer<vtkFloatArray>::New();
  		stddevArray->SetName(s.str().c_str());
   	stddevArray->SetNumberOfComponents(1); 
 		
